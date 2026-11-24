@@ -1,0 +1,22 @@
+[package]
+name = "hela"
+version = "0.1.0"
+edition = "2021"
+description = "Hela - a terminal arsenal of recon, crypto and system tools"
+license = "MIT"
+
+[dependencies]
+ratatui = "0.29"
+sha2 = "0.10"
+sha1 = "0.10"
+md-5 = "0.10"
+base64 = "0.22"
+hex = "0.4"
+rand = "0.8"
+ureq = "2.10"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
+panic = "abort"
