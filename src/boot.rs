@@ -2,7 +2,7 @@ use std::time::Instant;
 
 pub const SCRIPT: [(&str, &str); 6] = [
     ("relay", "niflheim:443 sealed"),
-    ("blades", "11 modules armed"),
+    ("blades", "all modules armed"),
     ("cipher", "sha-2 tables verified"),
     ("ghost", "interface id randomised"),
     ("gates", "nine realms mapped"),
@@ -45,19 +45,50 @@ impl Boot {
 
     /// 0..=1 reveal of the wordmark.
     pub fn reveal(&self) -> f32 {
-        (self.elapsed() / 1.1).min(1.0)
+        ((self.elapsed() - 0.08) / 0.95).clamp(0.0, 1.0)
     }
 
     /// 0..=1 progress of the loading bar.
     pub fn progress(&self) -> f32 {
-        (self.elapsed() / 2.7).min(1.0)
-    
+        (self.elapsed() / 2.9).clamp(0.0, 1.0)
+    }
+
     pub fn log_lines(&self) -> usize {
-        let t = self.elapsed() - 0.55;
-        if t <= 0.0 {
+        let time = self.elapsed() - 0.55;
+        if time <= 0.0 {
             0
         } else {
-            ((t * 2.6) as usize).min(SCRIPT.len())
+            ((time * 2.4) as usize).min(SCRIPT.len())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Boot;
+
+    #[test]
+    fn boot_reveals_and_completes() {
+        let mut boot = Boot::new();
+        boot.seek(0.0);
+        assert_eq!(boot.reveal(), 0.0);
+        assert_eq!(boot.log_lines(), 0);
+        assert!(!boot.done());
+
+        boot.seek(1.5);
+        assert!(boot.reveal() > 0.9);
+        assert!(boot.progress() > 0.4);
+        assert!(boot.log_lines() > 0);
+
+        boot.seek(3.3);
+        assert!(boot.done());
+        assert_eq!(boot.log_lines(), 6);
+    }
+
+    #[test]
+    fn skip_finishes_boot() {
+        let mut boot = Boot::new();
+        boot.skip();
+        assert!(boot.done());
     }
 }

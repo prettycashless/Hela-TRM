@@ -1,5 +1,5 @@
 use std::fs;
-use std::net::UdpSocket
+use std::net::UdpSocket;
 
 pub struct SystemInfo {
     pub user: String,
@@ -22,7 +22,8 @@ impl SystemInfo {
             user: env_or("USER", "hela"),
             host: read("/proc/sys/kernel/hostname").unwrap_or_else(|| "niflheim".into()),
             os: pretty_os(),
-            kernel: read("/proc/sys/kernel/osrelease").unwrap_or_else(|| std::env::consts::OS.into()),
+            kernel: read("/proc/sys/kernel/osrelease")
+                .unwrap_or_else(|| std::env::consts::OS.into()),
             arch: std::env::consts::ARCH.into(),
             uptime: uptime(),
             shell: base(env_or("SHELL", "sh")),
@@ -31,7 +32,7 @@ impl SystemInfo {
             memory: memory(),
             ip: local_ip(),
             cwd: std::env::current_dir()
-                .map(|p| p.display().to_string())
+                .map(|path| path.display().to_string())
                 .unwrap_or_else(|_| "?".into()),
         }
     }
@@ -44,8 +45,8 @@ fn env_or(key: &str, fallback: &str) -> String {
 fn read(path: &str) -> Option<String> {
     fs::read_to_string(path)
         .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
+        .map(|text| text.trim().to_string())
+        .filter(|text| !text.is_empty())
 }
 
 fn base(path: String) -> String {
@@ -65,21 +66,22 @@ fn pretty_os() -> String {
 
 fn uptime() -> String {
     let raw = read("/proc/uptime").unwrap_or_default();
-    let secs: f64 = raw
+    let seconds: f64 = raw
         .split_whitespace()
         .next()
-        .and_then(|v| v.parse().ok())
+        .and_then(|value| value.parse().ok())
         .unwrap_or(0.0);
-    let total = secs as u64;
+    let total = seconds as u64;
     let days = total / 86_400;
     let hours = (total % 86_400) / 3_600;
-    let mins = (total % 3_600) / 60;
+    let minutes = (total % 3_600) / 60;
+
     if days > 0 {
-        format!("{days}d {hours}h {mins}m")
+        format!("{days}d {hours}h {minutes}m")
     } else if hours > 0 {
-        format!("{hours}h {mins}m")
+        format!("{hours}h {minutes}m")
     } else {
-        format!("{mins}m")
+        format!("{minutes}m")
     }
 }
 
@@ -94,40 +96,53 @@ fn cpu_model() -> String {
             }
         }
     }
-    format!("{} cores", std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1))
+
+    format!(
+        "{} cores",
+        std::thread::available_parallelism()
+            .map(|count| count.get())
+            .unwrap_or(1)
+    )
 }
 
 fn memory() -> String {
     let text = fs::read_to_string("/proc/meminfo").unwrap_or_default();
     let mut total = 0f64;
-    let mut avail = 0f64;
+    let mut available = 0f64;
+
     for line in text.lines() {
-        if let Some(v) = line.strip_prefix("MemTotal:") {
-            total = kb(v);
-        } else if let Some(v) = line.strip_prefix("MemAvailable:") {
-            avail = kb(v);
+        if let Some(value) = line.strip_prefix("MemTotal:") {
+            total = kb(value);
+        } else if let Some(value) = line.strip_prefix("MemAvailable:") {
+            available = kb(value);
         }
     }
+
     if total <= 0.0 {
         return "unknown".into();
     }
-    format!("{:.1}G / {:.1}G", (total - avail) / 1_048_576.0, total / 1_048_576.0)
+
+    format!(
+        "{:.1}G / {:.1}G",
+        (total - available) / 1_048_576.0,
+        total / 1_048_576.0
+    )
 }
 
 fn kb(raw: &str) -> f64 {
     raw.split_whitespace()
         .next()
-        .and_then(|v| v.parse::<f64>().ok())
+        .and_then(|value| value.parse::<f64>().ok())
         .unwrap_or(0.0)
 }
 
 fn local_ip() -> String {
     UdpSocket::bind("0.0.0.0:0")
-        .and_then(|sock| {
-            sock.connect("8.8.8.8:80")?;
-            sock.local_addr()
+        .and_then(|socket| {
+            socket.connect("8.8.8.8:80")?;
+            socket.local_addr()
         })
-        .map(|addr| addr.ip().to_string())
+        .map(|address| address.ip().to_string())
         .unwrap_or_else(|_| "127.0.0.1".into())
 }
 
@@ -135,8 +150,24 @@ pub fn truncate(text: &str, max: usize) -> String {
     if text.chars().count() <= max {
         text.to_string()
     } else {
-        let mut out: String = text.chars().take(max.saturating_sub(1)).collect();
-        out.push('…');
-        out
+        let mut output: String = text.chars().take(max.saturating_sub(1)).collect();
+        output.push('…');
+        output
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::truncate;
+
+    #[test]
+    fn truncate_keeps_short_text() {
+        assert_eq!(truncate("hela", 8), "hela");
+    }
+
+    #[test]
+    fn truncate_respects_limit() {
+        assert_eq!(truncate("abcdef", 4), "abc…");
+        assert_eq!(truncate("abcdef", 0), "…");
     }
 }

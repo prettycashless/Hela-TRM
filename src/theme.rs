@@ -1,4 +1,4 @@
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Color;
 
 pub const BG: Color = Color::Rgb(8, 9, 12);
 pub const ACCENT: Color = Color::Rgb(132, 216, 226);
@@ -19,14 +19,35 @@ pub const TONES: [Color; 5] = [
     Color::Rgb(241, 243, 249),
 ];
 
-pub fn title() -> Style {
-    Style::default().fg(TEXT).add_modifier(Modifier::BOLD)
+pub fn blend(a: Color, b: Color, t: f32) -> Color {
+    let (ar, ag, ab) = rgb(a);
+    let (br, bg, bb) = rgb(b);
+    let t = t.clamp(0.0, 1.0);
+    let mix = |start: u8, end: u8| -> u8 {
+        (start as f32 + (end as f32 - start as f32) * t).round() as u8
+    };
+    Color::Rgb(mix(ar, br), mix(ag, bg), mix(ab, bb))
 }
 
-pub fn accent() -> Style {
-    Style::default().fg(ACCENT)
+fn rgb(color: Color) -> (u8, u8, u8) {
+    match color {
+        Color::Rgb(red, green, blue) => (red, green, blue),
+        Color::Black => (0, 0, 0),
+        Color::White => (255, 255, 255),
+        _ => (128, 128, 128),
+    }
 }
 
-pub fn faint() -> Style {
-    Style::default().fg(FAINT)
+#[cfg(test)]
+mod tests {
+    use super::{blend, Color};
+
+    #[test]
+    fn blend_hits_both_ends() {
+        let start = Color::Rgb(0, 0, 0);
+        let end = Color::Rgb(255, 255, 255);
+        assert_eq!(blend(start, end, 0.0), start);
+        assert_eq!(blend(start, end, 1.0), end);
+        assert_eq!(blend(start, end, 0.5), Color::Rgb(128, 128, 128));
+    }
 }
